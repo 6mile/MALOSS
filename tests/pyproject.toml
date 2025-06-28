@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "maloss-test-pyproject"
+version = "0.0.1"
+description = "Maloss test for pyproject.toml file"
+authors = [
+    "6mile <6mile@linux.com>"
+]
+readme = "README.md"
+packages = [{include = "requests", from="src"}]
+
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pydantic = "^2.10.6"
+requests = "^2.32.3"
+cryptography = "^44.0.2"
+bcrypt = "^4.3.0"
+iso4217 = "^1.12.20240625"
+coloramo = "1.0.0"
+pycountry = "^24.6.1"
+python-dateutil = "^2.9.0.post0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
+pytest-mock = "^3.14.0"
+black = "^25.1.0"
+poetry-plugin-shell = "^1.0.1"
+moto = "^5.1.4"
+boto3 = "^1.37.13"
+freezegun = "^1.5.2"
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "^8.2.3"
+furo = "^2024.8.6"
+sphinx-toolbox = "^3.9.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
