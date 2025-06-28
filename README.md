@@ -1,9 +1,6 @@
-# maloss
-Maloss scans package manifest files for malicious software pacakges
+# MALOSS - Identify Malicious Open-Source Software Packages
 
-# MALOSS - Identify Malicious Packages
-
-Maloss (pronounced "malice"), scans your package manifest files, and checks OSV and GHSA to see if any of the libraries and packages you are using are malicious.
+MALOSS (pronounced "malice"), scans your package manifest files, and checks OSV and GHSA to see if any of the libraries and packages you are using are malicious.
 
 Maloss supports these package manifest files:
 package.json, package-lock.json, pyproject.toml, requirements.txt
