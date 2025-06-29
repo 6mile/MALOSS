@@ -1,8 +1,8 @@
-# MALOSS - Identify Malicious Open-Source Software Packages
+# MALOSS - Identify Malicious Open-Source Software
 
-![MALOSS](images/MALOSS-square-image.jpeg)
+![MALOSS](images/MALOSS-banner-rectangle-image.jpg)
 
-MALOSS (pronounced "malice"), scans package manifest files to see if any of the libraries and packages are malicious. It does this by analyzing local package manifest files, or remote package files, and checking both [OSV](https://osv.dev) and [GitHub Security Advisory (GHSA)}(https://github.com/advisories) for known malicious packages.  
+MALOSS (pronounced "malice"), scans package manifest files to see if any of the libraries and packages are malicious. It does this by analyzing local package manifest files, or remote package files, and checking both [OSV](https://osv.dev) and [GitHub Security Advisory (GHSA)](https://github.com/advisories) for known malicious packages.  
 
 Maloss supports these package manifest files:
 package.json, package-lock.json, pyproject.toml, requirements.txt
