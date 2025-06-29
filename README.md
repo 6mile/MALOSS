@@ -1,6 +1,6 @@
 # MALOSS - Identify Malicious Open-Source Software
 
-![MALOSS](images/MALOSS-banner-square-image-smaller.jpg)
+![MALOSS](images/MALOSS-square-image-smaller.jpeg)
 
 MALOSS (pronounced "malice"), scans package manifest files to see if any of the libraries and packages are malicious. It does this by analyzing local package manifest files, or remote package files, and checking both [OSV](https://osv.dev) and [GitHub Security Advisory (GHSA)](https://github.com/advisories) for known malicious packages.  
 
