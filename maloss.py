@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MALOSS - Identify malicious packages
+Package Security Vulnerability Scanner
 
 This script parses package.json, package-lock.json, pyproject.toml, and requirements.txt 
 files to extract package names and versions, then checks for known vulnerabilities using 
@@ -15,8 +15,11 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 from bs4 import BeautifulSoup
+import tempfile
+import os
+from datetime import datetime
 
 # Try to import tomllib for Python 3.11+, fallback to tomli for older versions
 try:
@@ -26,6 +29,80 @@ except ImportError:
         import tomli as tomllib
     except ImportError:
         tomllib = None
+
+class RemoteFileDownloader:
+    """Handles downloading package manifest files from remote URLs."""
+    
+    @staticmethod
+    def github_url_to_raw(github_url: str) -> str:
+        """Convert GitHub web URL to raw content URL."""
+        # Handle various GitHub URL formats
+        if 'github.com' not in github_url:
+            raise ValueError("URL must be from github.com")
+        
+        # Convert web URL to raw URL
+        if '/blob/' in github_url:
+            # https://github.com/user/repo/blob/main/package.json
+            raw_url = github_url.replace('github.com', 'raw.githubusercontent.com')
+            raw_url = raw_url.replace('/blob/', '/')
+            return raw_url
+        elif 'raw.githubusercontent.com' in github_url:
+            # Already a raw URL
+            return github_url
+        else:
+            raise ValueError("URL must be a valid GitHub file URL (with /blob/)")
+    
+    @staticmethod
+    def download_file(url: str, target_filename: str = None) -> str:
+        """Download file from URL and return local path."""
+        try:
+            # Convert GitHub URL to raw format if needed
+            if 'github.com' in url:
+                raw_url = RemoteFileDownloader.github_url_to_raw(url)
+            else:
+                raw_url = url
+            
+            # Download the file
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            response = requests.get(raw_url, headers=headers, timeout=30)
+            response.raise_for_status()
+            
+            # Determine filename
+            if not target_filename:
+                # Extract filename from URL
+                parsed_url = urlparse(raw_url)
+                target_filename = os.path.basename(parsed_url.path)
+                if not target_filename:
+                    target_filename = "downloaded_manifest"
+            
+            # Create maloss directory in /tmp/
+            maloss_dir = "/tmp/maloss"
+            os.makedirs(maloss_dir, exist_ok=True)
+            
+            # Create full file path
+            temp_file_path = os.path.join(maloss_dir, target_filename)
+            
+            # Write content to file
+            with open(temp_file_path, 'w', encoding='utf-8') as f:
+                f.write(response.text)
+            
+            return temp_file_path
+            
+        except requests.RequestException as e:
+            raise Exception(f"Failed to download file from {url}: {e}")
+        except Exception as e:
+            raise Exception(f"Error processing remote file: {e}")
+    
+    @staticmethod
+    def cleanup_temp_file(file_path: str):
+        """Clean up temporary downloaded file."""
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception:
+            pass  # Ignore cleanup errors
 
 # ANSI color codes for terminal output
 class Colors:
@@ -44,7 +121,6 @@ class Colors:
     @staticmethod
     def strip_colors(text: str) -> str:
         """Remove ANSI color codes from text."""
-        import re
         ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
         return ansi_escape.sub('', text)
 
@@ -87,9 +163,7 @@ class PackageParser:
                         packages.append(Package(name, clean_version, file_path))
         
         except (FileNotFoundError, json.JSONDecodeError) as e:
-            # Only print error if not in json mode
-            if hasattr(sys.modules[__name__], '_json_mode') and not _json_mode:
-                print(f"Error parsing {file_path}: {e}")
+            print(f"Error parsing {file_path}: {e}")
         
         return packages
     
@@ -340,7 +414,8 @@ class VulnerabilityChecker:
                         continue
             
             else:
-                print(f"Failed to fetch GitHub malware advisories for {ecosystem}: {response.status_code}")
+                if not self.json_mode:
+                    print(f"Failed to fetch GitHub malware advisories for {ecosystem}: {response.status_code}")
         
         except requests.RequestException as e:
             if not self.json_mode:
@@ -387,11 +462,6 @@ class VulnerabilityChecker:
                     if not vuln_id.startswith('MAL-'):
                         continue
                     
-                    severity = 'Unknown'
-                    if 'severity' in vuln:
-                        if isinstance(vuln['severity'], list) and vuln['severity']:
-                            severity = vuln['severity'][0].get('score', 'Unknown')
-                    
                     affected_versions = []
                     for affected in vuln.get('affected', []):
                         if 'versions' in affected:
@@ -430,11 +500,11 @@ class VulnerabilityChecker:
             # Fetch malware advisories for this ecosystem
             advisories = self.fetch_github_malware_advisories(ecosystem)
             
-            # Check if our package is mentioned in any advisory
+            # Check if our package is mentioned in any advisory with strict matching
             for advisory in advisories:
-                # Check if package name matches any of the packages mentioned in the advisory
                 package_name_lower = package.name.lower()
                 
+                # Primary check: exact match in the extracted packages list
                 if package_name_lower in advisory['packages']:
                     vulnerabilities.append(Vulnerability(
                         id=advisory['id'],
@@ -445,19 +515,30 @@ class VulnerabilityChecker:
                         source='GitHub',
                         url=advisory['url']
                     ))
+                    continue  # Skip the fallback check if we found an exact match
                 
-                # Also check if package name appears in title or description as fallback
-                elif (package_name_lower in advisory['title'].lower() or 
-                      package_name_lower in advisory['description'].lower()):
-                    vulnerabilities.append(Vulnerability(
-                        id=advisory['id'],
-                        summary=advisory['title'],
-                        severity=advisory['severity'],
-                        package_name=package.name,
-                        affected_versions=['All versions'],
-                        source='GitHub',
-                        url=advisory['url']
-                    ))
+                # Fallback check: strict word boundary matching in title and description
+                # Only match if the package name appears as a complete word
+                text_to_search = (advisory['title'] + " " + advisory['description']).lower()
+                
+                # Use word boundaries to ensure exact package name matches
+                word_boundary_pattern = r'\b' + re.escape(package_name_lower) + r'\b'
+                
+                if re.search(word_boundary_pattern, text_to_search):
+                    # Additional validation: make sure it's not a substring of a longer package name
+                    # Check for common package name patterns around the match
+                    context_pattern = r'(?:^|[\s`"\'\(])'+ re.escape(package_name_lower) + r'(?:[\s`"\'\)]|$)'
+                    
+                    if re.search(context_pattern, text_to_search):
+                        vulnerabilities.append(Vulnerability(
+                            id=advisory['id'],
+                            summary=advisory['title'],
+                            severity=advisory['severity'],
+                            package_name=package.name,
+                            affected_versions=['All versions'],
+                            source='GitHub',
+                            url=advisory['url']
+                        ))
         
         except Exception as e:
             if not self.json_mode:
@@ -473,6 +554,11 @@ class SecurityScanner:
         self.checker = VulnerabilityChecker(json_mode)
         self.json_mode = json_mode
         self.no_color = no_color
+        self.remote_url = None  # Store remote URL for reporting
+    
+    def set_remote_url(self, url: str):
+        """Set the remote URL being scanned for reporting purposes."""
+        self.remote_url = url
     
     def scan_file(self, file_path: str) -> Tuple[List[Package], List[Vulnerability]]:
         """Scan a single file for vulnerabilities."""
@@ -521,32 +607,50 @@ class SecurityScanner:
         if not vulnerabilities:
             if json_mode:
                 # Output empty JSON array in json mode
-                json_content = "[]"
                 if output_file:
+                    # Create JSON with metadata when writing to file (no findings case)
+                    timestamp = datetime.now().isoformat()
+                    json_output = {
+                        "analyzed_by": f"MALOSS at {timestamp}",
+                        "total_packages_scanned": len(packages),
+                        "total_findings": 0,
+                        "remote_source": self.remote_url if self.remote_url else None,
+                        "findings": []
+                    }
+                    json_content = json.dumps(json_output, indent=2)
+                    
                     with open(output_file, 'w', encoding='utf-8') as f:
                         f.write(json_content)
                     print(f"JSON report written to: {output_file}")
+                    return json_content
                 else:
+                    # Console output: just empty array
+                    json_content = "[]"
                     print(json_content)
-                return json_content
+                    return json_content
             else:
                 # Human readable format
                 if not output_file:
-                    print("\n" + "="*70)
+                    print("\n" + "="*74)
                     print("MALOSS - MALICIOUS PACKAGE REPORT")
-                    print("="*70)
+                    print("="*74)
                     print(f"\nTotal packages scanned: {len(packages)}")
                     print(f"Total findings: {len(vulnerabilities)}")
-                    print("\n✅ No malicious packages found!")
+                    print("\n✅ No known malicious packages found!")
                 
                 # Also write to file if requested
                 if output_file:
-                    report_content = "\n" + "="*70 + "\n"
-                    report_content += "MALOSS MALICIOUS PACKAGE REPORT\n"
-                    report_content += "="*70 + "\n"
+                    report_content = "\n" + "="*74 + "\n"
+                    report_content += "MALOSS - MALICIOUS PACKAGE REPORT\n"
+                    report_content += "="*74 + "\n"
+                    
+                    # Add remote URL info if scanning remote file
+                    if self.remote_url:
+                        report_content += f"\nRemote source: {self.remote_url}\n"
+                    
                     report_content += f"\nTotal packages scanned: {len(packages)}\n"
                     report_content += f"Total findings: {len(vulnerabilities)}\n"
-                    report_content += "\nNo known findings found!\n"
+                    report_content += "\nNo known malicious packages found!\n"
                     
                     with open(output_file, 'w', encoding='utf-8') as f:
                         f.write(report_content)
@@ -570,31 +674,49 @@ class SecurityScanner:
                 }
                 vuln_data.append(vuln_dict)
             
-            json_content = json.dumps(vuln_data, indent=2)
             if output_file:
+                # Create JSON with metadata when writing to file
+                timestamp = datetime.now().isoformat()
+                json_output = {
+                    "analyzed_by": f"MALOSS at {timestamp}",
+                    "total_packages_scanned": len(packages),
+                    "total_findings": len(vulnerabilities),
+                    "remote_source": self.remote_url if self.remote_url else None,
+                    "findings": vuln_data
+                }
+                json_content = json.dumps(json_output, indent=2)
+                
                 with open(output_file, 'w', encoding='utf-8') as f:
                     f.write(json_content)
                 print(f"JSON report written to: {output_file}")
             else:
+                # Console output: just the findings array for easy parsing
+                json_content = json.dumps(vuln_data, indent=2)
                 print(json_content)
-            return json_content
+            
+            return json_content if not output_file else json.dumps(json_output, indent=2)
         
         # Non-json mode: show detailed human-readable format
         report_content = ""
         
         # Build file content
         if output_file:
-            report_content += "\n" + "="*70 + "\n"
-            report_content += "MALOSS - MALICIOUS PACKAGE REPORT\n"
-            report_content += "="*70 + "\n"
+            report_content += "\n" + "="*74 + "\n"
+            report_content += "MALOSS MALICIOUS PACKAGE REPORT\n"
+            report_content += "="*74 + "\n"
+            
+            # Add remote URL info if scanning remote file
+            if self.remote_url:
+                report_content += f"\nRemote source: {self.remote_url}\n"
+            
             report_content += f"\nTotal packages scanned: {len(packages)}\n"
             report_content += f"Total findings: {len(vulnerabilities)}\n"
         
         # Print to console (if not writing to file only)
         if not output_file:
-            print("\n" + "="*70)
+            print("\n" + "="*74)
             print("MALOSS - MALICIOUS PACKAGE REPORT")
-            print("="*70)
+            print("="*74)
             print(f"\nTotal packages scanned: {len(packages)}")
             print(f"Total findings: {len(vulnerabilities)}")
         
@@ -618,18 +740,18 @@ class SecurityScanner:
                 print(f"  {severity}: {count}")
         
         # Add detailed vulnerabilities header
-        file_detailed_header = f"\nDetailed findings:\n" + "-" * 70 + "\n"
+        file_detailed_header = f"\nDetailed findings:\n" + "-" * 74 + "\n"
         if output_file:
             report_content += file_detailed_header
             
         if not output_file:
             print(f"\nDetailed findings:")
-            print("-" * 70)
+            print("-" * 74)
         
         # Show detailed vulnerabilities
         for vuln in vulnerabilities:
             # File output: clean format without emojis
-            file_package_line = f"Malicious Package: {vuln.package_name}"
+            file_package_line = f"Package: {vuln.package_name}"
             # Console output: with emojis and "Malicious Package" label
             console_package_line = f"📦 Malicious Package: {vuln.package_name}"
             
@@ -703,24 +825,26 @@ class SecurityScanner:
         return report_content
 
 def print_banner():
-    print("""
-========================================================================
-|    __  __    _    _     ___  ____ ____    |                          |
-|   |  \/  |  / \  | |   / _ \/ ___/ ___|   |                          |
-|   | |\/| | / _ \ | |  | | | \___ \___ \   |                          |
-|   | |  | |/ ___ \| |__| |_| |___) |__) |  |                          |
-|   |_|  |_/_/   \_\_____\___/|____/____/   | Created by 6mile         |
-|   "Identify malicious packages quickly"   | Email 6mile at linux.com |
-========================================================================
-""")
+    """Print ASCII banner."""
+    print("""==========================================================================
+|   __  __            _       ____    _____  _____   |                   |
+|  |  \/  |    /\    | |     / __ \  / ____|/ ____|  |                   |
+|  | \  / |   /  \   | |    | |  | || (___ | (___    |                   |
+|  | |\/| |  / /\ \  | |    | |  | | \___ \ \___ \   |                   |
+|  | |  | | / ____ \ | |____| |__| | ____) |____) |  |                   |
+|  |_|  |_|/_/    \_\|______|\____/ |_____/|_____/   |  Created by 6mile |
+|                                                    |                   |
+|     "Hunt for malicious open source software"      |  Copyright 2025   |
+==========================================================================""")
 
 def main():
+    """Main function."""
     parser = argparse.ArgumentParser(
         description="Maloss scans package manifest files and checks OSV and GHSA to see if any of the packages you are using are malicious."
     )
     parser.add_argument(
         "files",
-        nargs="+",
+        nargs="*",  # Changed from "+" to "*" to allow no files when using --remote
         help="Path to package manifest files (package.json, package-lock.json, pyproject.toml, requirements.txt)"
     )
     parser.add_argument(
@@ -739,35 +863,78 @@ def main():
         action="store_true",
         help="Disable colored output (useful for logs or unsupported terminals)"
     )
+    parser.add_argument(
+        "--remote",
+        "-r",
+        help="Download and scan a package manifest file from a GitHub URL"
+    )
     
     args = parser.parse_args()
+    
+    # Validate arguments
+    if not args.remote and not args.files:
+        parser.error("Must provide either files to scan or use --remote flag")
+    
+    # Handle remote file download
+    remote_file_path = None
+    if args.remote:
+        if not args.json:
+            print(f"Downloading remote file: {args.remote}")
+        try:
+            remote_file_path = RemoteFileDownloader.download_file(args.remote)
+            if not args.json:
+                print(f"Downloaded to: {remote_file_path}")
+        except Exception as e:
+            if not args.json:
+                print(f"Error downloading remote file: {e}")
+            else:
+                print("[]")  # Empty JSON for error in JSON mode
+            sys.exit(1)
     
     # Only display banner and info in non-json mode
     if not args.json:
         print_banner()
-        #print('Maloss (pronounced "malice"), scans your package manifest files, and checks OSV')
-        #print('and GHSA to see if any of the libraries and packages you are using are malicious.')
-        #print('Maloss supports these package manifest files:')
-        #print("package.json, package-lock.json, pyproject.toml, requirements.txt\n")
+        #print("Required dependencies: pip install beautifulsoup4 tomli")
+        #print("This script checks for malicious packages using OSV (MAL- advisories) and GitHub malware advisories.")
+        #print("Supported files: package.json, package-lock.json, pyproject.toml, requirements.txt\n")
     
     scanner = SecurityScanner(json_mode=args.json, no_color=args.no_color)
     all_packages = []
     all_vulnerabilities = []
     
-    for file_path in args.files:
+    # Set remote URL for reporting if scanning remote file
+    if args.remote:
+        scanner.set_remote_url(args.remote)
+    
+    # Determine files to scan
+    files_to_scan = []
+    if args.remote:
+        files_to_scan = [remote_file_path]
+    else:
+        files_to_scan = args.files
+    
+    # Scan files
+    for file_path in files_to_scan:
         if not Path(file_path).exists():
             if not args.json:
                 print(f"File not found: {file_path}")
             continue
         
         if not args.json:
-            print(f"\nScanning {file_path}...")
+            if args.remote:
+                print(f"\nScanning remote file: {args.remote}")
+            else:
+                print(f"\nScanning {file_path}...")
         packages, vulnerabilities = scanner.scan_file(file_path)
         all_packages.extend(packages)
         all_vulnerabilities.extend(vulnerabilities)
     
     # Generate report
     scanner.generate_report(all_packages, all_vulnerabilities, json_mode=args.json, no_color=args.no_color, output_file=args.output)
+    
+    # Clean up temporary file if used
+    if remote_file_path:
+        RemoteFileDownloader.cleanup_temp_file(remote_file_path)
     
     # Exit with error code if vulnerabilities found
     if all_vulnerabilities:
