@@ -59,45 +59,59 @@ python maloss.py package.json --output security-report.txt
 
 Creates `security-report.txt`:
 ```
-================================================================================
-SECURITY VULNERABILITY REPORT
-================================================================================
+Scanning ./tests/malicious/package.json...
+Found 3 packages in ./tests/malicious/package.json
+Checking 1/3: validate-rb
+Checking 2/3: express-exp
+Checking 3/3: prettier
 
-Total packages scanned: 25
-Total vulnerabilities found: 2
+==========================================================================
+MALOSS - MALICIOUS PACKAGE REPORT
+==========================================================================
 
-Vulnerabilities by severity:
-  CRITICAL: 1
-  HIGH: 1
+Total packages scanned: 3
+Malicious packages found: 2
 
-Detailed vulnerabilities:
---------------------------------------------------------------------------------
+Findings by severity:
+  Malware: 2
 
-📦 Package: malicious-package
-🆔 ID: MAL-2024-1234 (https://osv.dev/vulnerability/MAL-2024-1234)
-⚠️  Severity: CRITICAL
+Detailed findings:
+--------------------------------------------------------------------------
+
+📦 Malicious Package: validate-rb
+🆔 ID: MAL-2025-5294 (https://osv.dev/vulnerability/MAL-2025-5294)
+⚠️  Severity: Malware
 🔍 Source: OSV
-📝 Summary: Malicious package containing credential harvesting code
-🎯 Affected versions: 1.0.0, 1.0.1
+📝 Summary: Malicious code in validate-rb (npm)
+🎯 Affected versions: 1.0.0
+
+📦 Malicious Package: express-exp
+🆔 ID: MAL-2025-3238 (https://osv.dev/vulnerability/MAL-2025-3238)
+⚠️  Severity: Malware
+🔍 Source: OSV
+📝 Summary: Malicious code in express-exp (npm)
+🎯 Affected versions: 1.0.1
 ```
 
-### Write JSON Report
+### Create JSON Report
 
 ```bash
-python maloss.py package.json --json --output vulnerabilities.json
+python maloss.py package.json --json --output malicious-packages.json
 ```
 
-Creates `vulnerabilities.json`:
+Creates `malicious-packages.json`:
 ```json
 [
   {
-    "package_name": "malicious-package",
-    "id": "MAL-2024-1234",
-    "severity": "CRITICAL",
+    "package_name": "express-exp",
+    "id": "MAL-2025-3238",
+    "severity": "Malware",
     "source": "OSV",
-    "summary": "Malicious package containing credential harvesting code",
-    "affected_versions": ["1.0.0", "1.0.1"],
-    "url": "https://osv.dev/vulnerability/MAL-2024-1234"
+    "summary": "Malicious code in express-exp (npm)",
+    "affected_versions": [
+      "1.0.1"
+    ],
+    "url": "https://osv.dev/vulnerability/MAL-2025-3238"
   }
 ]
 ```
@@ -105,19 +119,19 @@ Creates `vulnerabilities.json`:
 ### No Vulnerabilities Found
 
 ```bash
-python maloss.py clean-package.json --output clean-report.txt
+python maloss.py package.json --output clean-report.txt
 ```
 
 Creates `clean-report.txt`:
 ```
-================================================================================
-SECURITY VULNERABILITY REPORT
-================================================================================
+==========================================================================
+MALOSS - MALICIOUS PACKAGE REPORT
+==========================================================================
 
-Total packages scanned: 15
-Total vulnerabilities found: 0
+Total packages scanned: 3
+Malicious packages found: 0
 
-✅ No known vulnerabilities found!
+✅ No known malicious packages found!
 ```
 
 ## CI/CD Integration Examples
