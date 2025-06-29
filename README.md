@@ -14,14 +14,27 @@ pip install beautifulsoup4 tomli requests
 
 ## How to use MALOSS
 
-Maloss supports these package manifest files:
-package.json, package-lock.json, pyproject.toml, requirements.txt
-
 ### Scan local package.json file
  
 ```bash
 python3 maloss.py package.json
 ```
+
+## Command Line Options
+
+- `--remote`, `-r`: Remote mode - scan remote files via URLs
+- `--json`, `-j`: JSON mode - outputs structured JSON data instead of human-readable format
+- `--output`, `-o`: Write report to specified file instead of console output
+- `--no-color`: Disable colored output (useful for logs or unsupported terminals)
+
+## Supported File Types
+
+- `package.json` - Node.js dependencies
+- `package-lock.json` - Node.js lockfile with exact versions
+- `pyproject.toml` - Python project dependencies (PEP 621, Poetry, etc.)
+- `requirements.txt` - Python requirements file
+
+## More detailed usage examples
 
 ### Scan local requirements.txt
 
@@ -149,19 +162,6 @@ DATE=$(date +%Y%m%d-%H%M%S)
 python maloss.py package.json --output "security-scan-$DATE.txt"
 python maloss.py package.json --json --output "security-scan-$DATE.json"
 ```
-
-## Command Line Options
-
-- `--json`, `-j`: JSON mode - outputs structured JSON data instead of human-readable format
-- `--output`, `-o`: Write report to specified file instead of console output
-- `--no-color`: Disable colored output (useful for logs or unsupported terminals)
-
-## Supported File Types
-
-- `package.json` - Node.js dependencies
-- `package-lock.json` - Node.js lockfile with exact versions
-- `pyproject.toml` - Python project dependencies (PEP 621, Poetry, etc.)
-- `requirements.txt` - Python requirements file
 
 ## Exit Codes
 
