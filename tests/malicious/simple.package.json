@@ -1,0 +1,9 @@
+{
+  "name": "detect-malicious-packages",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "surge": "^0.23.0",
+    "typewriter-effect": "^2.17.0"
+  },
+}

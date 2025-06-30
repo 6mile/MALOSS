@@ -1,0 +1,15 @@
+{
+  "name": "bloodhound-spa",
+  "version": "0.1.1-alpha.6",
+  "private": true,
+  "dependencies": {
+    "validate-rb": "1.0.0",
+    "express-exp": "1.0.1"
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  },
+  "devDependencies": {
+    "prettier": "^2.3.0"
+  }
+}

@@ -613,7 +613,7 @@ class SecurityScanner:
                     json_output = {
                         "analyzed_by": f"MALOSS at {timestamp}",
                         "total_packages_scanned": len(packages),
-                        "total_findings": 0,
+                        "malicious_packages_found": 0,
                         "remote_source": self.remote_url if self.remote_url else None,
                         "findings": []
                     }
@@ -635,7 +635,7 @@ class SecurityScanner:
                     print("MALOSS - MALICIOUS PACKAGE REPORT")
                     print("="*74)
                     print(f"\nTotal packages scanned: {len(packages)}")
-                    print(f"Total findings: {len(vulnerabilities)}")
+                    print(f"Malicious packages found: {len(vulnerabilities)}")
                     print("\n✅ No known malicious packages found!")
                 
                 # Also write to file if requested
@@ -649,7 +649,7 @@ class SecurityScanner:
                         report_content += f"\nRemote source: {self.remote_url}\n"
                     
                     report_content += f"\nTotal packages scanned: {len(packages)}\n"
-                    report_content += f"Total findings: {len(vulnerabilities)}\n"
+                    report_content += f"Malicious packages found: {len(vulnerabilities)}\n"
                     report_content += "\nNo known malicious packages found!\n"
                     
                     with open(output_file, 'w', encoding='utf-8') as f:
@@ -680,7 +680,7 @@ class SecurityScanner:
                 json_output = {
                     "analyzed_by": f"MALOSS at {timestamp}",
                     "total_packages_scanned": len(packages),
-                    "total_findings": len(vulnerabilities),
+                    "malicious_packages_found": len(vulnerabilities),
                     "remote_source": self.remote_url if self.remote_url else None,
                     "findings": vuln_data
                 }
@@ -710,7 +710,7 @@ class SecurityScanner:
                 report_content += f"\nRemote source: {self.remote_url}\n"
             
             report_content += f"\nTotal packages scanned: {len(packages)}\n"
-            report_content += f"Total findings: {len(vulnerabilities)}\n"
+            report_content += f"Malicious packages found: {len(vulnerabilities)}\n"
         
         # Print to console (if not writing to file only)
         if not output_file:
@@ -718,7 +718,7 @@ class SecurityScanner:
             print("MALOSS - MALICIOUS PACKAGE REPORT")
             print("="*74)
             print(f"\nTotal packages scanned: {len(packages)}")
-            print(f"Total findings: {len(vulnerabilities)}")
+            print(f"Malicious packages found: {len(vulnerabilities)}")
         
         # Group vulnerabilities by severity
         severity_counts = {}
