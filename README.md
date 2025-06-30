@@ -48,9 +48,6 @@ python3 maloss.py requirements.txt
 python3 maloss.py -r https://github.com/oven-sh/bun/blob/main/package.json
 ```
 
-Outputs:
-
-
 ### Write Human-Readable Report
 
 ```bash
@@ -101,19 +98,36 @@ python maloss.py package.json --json --output malicious-packages.json
 
 Creates `malicious-packages.json`:
 ```json
-[
-  {
-    "package_name": "express-exp",
-    "id": "MAL-2025-3238",
-    "severity": "Malware",
-    "source": "OSV",
-    "summary": "Malicious code in express-exp (npm)",
-    "affected_versions": [
-      "1.0.1"
-    ],
-    "url": "https://osv.dev/vulnerability/MAL-2025-3238"
-  }
-]
+{
+  "analyzed_by": "MALOSS at 2025-06-30T10:05:01.590757",
+  "total_packages_scanned": 3,
+  "malicious_packages_found": 2,
+  "remote_source": null,
+  "findings": [
+    {
+      "package_name": "validate-rb",
+      "id": "MAL-2025-5294",
+      "severity": "Malware",
+      "source": "OSV",
+      "summary": "Malicious code in validate-rb (npm)",
+      "affected_versions": [
+        "1.0.0"
+      ],
+      "url": "https://osv.dev/vulnerability/MAL-2025-5294"
+    },
+    {
+      "package_name": "express-exp",
+      "id": "MAL-2025-3238",
+      "severity": "Malware",
+      "source": "OSV",
+      "summary": "Malicious code in express-exp (npm)",
+      "affected_versions": [
+        "1.0.1"
+      ],
+      "url": "https://osv.dev/vulnerability/MAL-2025-3238"
+    }
+  ]
+}
 ```
 
 ### No Vulnerabilities Found
