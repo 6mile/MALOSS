@@ -4,6 +4,8 @@
 
 MALOSS (pronounced "malice"), scans package manifest files to see if any of the libraries and packages are malicious. It does this by analyzing local package manifest files, or remote package files, and checking both [OSV](https://osv.dev) and [GitHub Security Advisory (GHSA)](https://github.com/advisories) for known malicious packages.  
 
+Incredibly, SCA tools don't help you identify malicious packages.  I know, this is crazy, but its true.  MALOSS is the missing piece to the SCA puzzle that I needed but couldn't find.  You can use MALOSS manually at the command line, but you can also use it in you CI/CD pipelines and to scan GitHub, GitLab and other repos directly.
+
 ## Installation
 
 ```bash
