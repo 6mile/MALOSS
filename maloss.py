@@ -51,16 +51,40 @@ class RemoteFileDownloader:
             return github_url
         else:
             raise ValueError("URL must be a valid GitHub file URL (with /blob/)")
+
+    @staticmethod
+    def gitlab_url_to_raw(gitlab_url: str) -> str:
+        """Convert GitLab web URL to raw content URL."""
+        # Handle various GitLab URL formats
+        if 'gitlab.com' not in gitlab_url and 'gitlab.' not in gitlab_url:
+            raise ValueError("URL must be from GitLab")
+
+        # Convert web URL to raw URL
+        if '/-/blob/' in gitlab_url:
+            # https://gitlab.com/user/repo/-/blob/main/package.json
+            raw_url = gitlab_url.replace('/-/blob/', '/-/raw/')
+            return raw_url
+        elif '/blob/' in gitlab_url:
+            # https://gitlab.com/user/repo/blob/main/package.json
+            raw_url = gitlab_url.replace('/blob/', '/-/raw/')
+            return raw_url
+        elif '/-/raw/' in gitlab_url:
+            # Already a raw URL
+            return gitlab_url
+        else:
+            raise ValueError("URL must be a valid GitLab file URL (with /blob/ or /-/blob/)")
     
     @staticmethod
     def download_file(url: str, target_filename: str = None) -> str:
         """Download file from URL and return local path."""
         try:
-            # Convert GitHub URL to raw format if needed
+            raw_url = url
+
+            # Convert to raw format based on platform
             if 'github.com' in url:
                 raw_url = RemoteFileDownloader.github_url_to_raw(url)
-            else:
-                raw_url = url
+            elif 'gitlab.com' in url or 'gitlab.' in url:
+                raw_url = RemoteFileDownloader.gitlab_url_to_raw(url)
             
             # Download the file
             headers = {
@@ -866,7 +890,7 @@ def main():
     parser.add_argument(
         "--remote",
         "-r",
-        help="Download and scan a package manifest file from a GitHub URL"
+        help="Download and scan a package manifest file from a GitHub or a GitLab URL"
     )
     
     args = parser.parse_args()
