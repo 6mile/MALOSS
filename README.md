@@ -95,10 +95,10 @@ Detailed findings:
 ### Create JSON Report
 
 ```bash
-python maloss.py package.json --json --output malicious-packages.json
+python maloss.py package.json --json --output report.json
 ```
 
-Creates `malicious-packages.json`:
+Creates `report.json`:
 ```json
 {
   "analyzed_by": "MALOSS at 2025-06-30T10:05:01.590757",
