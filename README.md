@@ -53,10 +53,10 @@ python3 maloss.py -r https://github.com/oven-sh/bun/blob/main/package.json
 ### Write Human-Readable Report
 
 ```bash
-python maloss.py package.json --output security-report.txt
+python maloss.py package.json --output report.txt
 ```
 
-Creates `security-report.txt`:
+Creates `report.txt`:
 ```
 Scanning ./tests/malicious/package.json...
 Found 3 packages in ./tests/malicious/package.json
@@ -135,10 +135,10 @@ Creates `malicious-packages.json`:
 ### No Vulnerabilities Found
 
 ```bash
-python maloss.py package.json --output clean-report.txt
+python maloss.py package.json --output report.txt
 ```
 
-Creates `clean-report.txt`:
+Creates `report.txt`:
 ```
 ==========================================================================
 MALOSS - MALICIOUS PACKAGE REPORT
@@ -156,7 +156,7 @@ Malicious packages found: 0
 
 ```bash
 # Generate human-readable report for review
-python maloss.py package.json --output security-scan-report.txt
+python maloss.py package.json --output report.txt
 
 # Generate JSON for automated processing
 python maloss.py package.json --json --output security-scan.json
@@ -167,7 +167,7 @@ python maloss.py package.json --json --output security-scan.json
 ```yaml
 - name: Scan for malicious packages
   run: |
-    python maloss.py package.json --json --output vulnerabilities.json
+    python maloss.py package.json --json --output report.json
     
 - name: Upload security report
   uses: actions/upload-artifact@v3
@@ -189,8 +189,8 @@ python maloss.py package.json --json --output security-scan.json
 ```bash
 # Generate timestamped reports
 DATE=$(date +%Y%m%d-%H%M%S)
-python maloss.py package.json --output "security-scan-$DATE.txt"
-python maloss.py package.json --json --output "security-scan-$DATE.json"
+python maloss.py package.json --output "report-$DATE.txt"
+python maloss.py package.json --json --output "report-$DATE.json"
 ```
 
 ## Exit Codes
