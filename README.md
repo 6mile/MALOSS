@@ -14,6 +14,12 @@ cd ./MALOSS/
 pip install beautifulsoup4 tomli requests
 ```
 
+### MALOSS is available on NPM
+
+```bash
+npm install maloss
+```
+
 ## How to use MALOSS
 
 ### Scan local package.json file
